@@ -4,7 +4,8 @@
   "description": "Model Context Protocol server for Pipedrive CRM - The most complete and robust Pipedrive MCP implementation",
   "type": "module",
   "bin": {
-    "mcp-pipedrive": "./dist/index.js"
+    "mcp-pipedrive": "./dist/index.js",
+    "mcp-pipedrive-sse": "./dist/sse.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -28,7 +29,9 @@
     "format:check": "prettier --check \"src/**/*.ts\"",
     "type-check": "tsc --noEmit",
     "prepare": "husky",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "start:sse": "node dist/sse.js",
+    "dev:sse": "tsc && node dist/sse.js"
   },
   "keywords": [
     "mcp",
