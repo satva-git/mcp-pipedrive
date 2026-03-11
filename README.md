@@ -206,12 +206,61 @@ PIPEDRIVE_API_TOKEN=your_token PORT=3000 npm run start:sse
 
 The SSE server resolves the Pipedrive API token in this priority order:
 
-1. **Authorization header**: `Authorization: Bearer <token>`
-2. **Custom header**: `X-Pipedrive-Token: <token>`
-3. **Query parameter**: `/sse?token=<token>`
-4. **Environment variable**: `PIPEDRIVE_API_TOKEN` (fallback for single-user mode)
+#### 1. Authorization Header (recommended)
 
-If no token is found, the server returns `401 Unauthorized`.
+```
+GET /sse
+Authorization: Bearer your_pipedrive_api_token
+```
+
+Best for production. Standard OAuth-style header that works with most reverse proxies and API gateways.
+
+#### 2. Custom Header
+
+```
+GET /sse
+X-Pipedrive-Token: your_pipedrive_api_token
+```
+
+Useful when the `Authorization` header is already consumed by a reverse proxy or gateway sitting in front of the MCP server.
+
+#### 3. Query Parameter
+
+```
+GET /sse?token=your_pipedrive_api_token
+```
+
+Easiest for quick testing. **Not recommended for production** — tokens will appear in server logs and browser history.
+
+#### 4. Environment Variable (fallback)
+
+```bash
+PIPEDRIVE_API_TOKEN=your_token PORT=3000 npm run start:sse
+```
+
+All connections that do not provide their own token will share this single fallback token. Good for single-user or single-org deployments. If a client *does* provide a token via header or query param, it takes priority over the env var.
+
+If no token is found through any of the above methods, the server returns `401 Unauthorized`.
+
+#### How Multi-User Authentication Works
+
+```
+User A  -->  GET /sse  Authorization: Bearer <tokenA>  -->  Own Pipedrive data
+User B  -->  GET /sse  Authorization: Bearer <tokenB>  -->  Own Pipedrive data
+User C  -->  GET /sse  (no token)                      -->  401 Unauthorized
+```
+
+Each connection is fully isolated — separate `PipedriveClient`, separate cache, separate rate limits. One user's activity never affects another.
+
+#### Quick Test
+
+```bash
+# Test SSE connection with curl
+curl -N -H "Authorization: Bearer your_token" http://localhost:3000/sse
+
+# Test health endpoint
+curl http://localhost:3000/health
+```
 
 ### Connecting from MCP Clients
 
