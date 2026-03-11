@@ -20,6 +20,7 @@ A production-ready [Model Context Protocol](https://modelcontextprotocol.io) ser
 - **MCP Resources** - Read-only access to pipelines, custom fields, and user info
 - **MCP Prompts** - 5 guided workflows for common operations
 - **Performance Metrics** - Built-in tracking for request duration and success rates
+- **SSE Transport (Multi-User)** - Host as an HTTP server with Server-Sent Events for multiple concurrent users, each with their own API token
 - **Read-Only Mode** - Optional safety mode that blocks all write operations
 - **Toolset Filtering** - Enable/disable specific tool categories as needed
 
@@ -164,6 +165,123 @@ Enable verbose logging for troubleshooting:
   }
 }
 ```
+
+## SSE Mode (Multi-User Hosted Server)
+
+In addition to the default **stdio** transport (one user, one process), this fork adds an **SSE (Server-Sent Events)** transport that lets you host a single server for multiple users. Each SSE connection gets its own isolated MCP server and Pipedrive client.
+
+### Why SSE?
+
+| | Stdio (default) | SSE (new) |
+|---|---|---|
+| **Users** | Single user per process | Multiple concurrent users |
+| **Deployment** | Local CLI / Claude Desktop | Hosted server (VPS, Docker, cloud) |
+| **API Token** | Environment variable | Per-connection (header/query) |
+| **Use case** | Personal use | Team/org-wide deployment |
+
+### Quick Start
+
+```bash
+# Clone and build
+git clone https://github.com/satva-git/mcp-pipedrive.git
+cd mcp-pipedrive
+npm install && npm run build
+
+# Option 1: Multi-user (each client provides their own token)
+PORT=3000 npm run start:sse
+
+# Option 2: Single-user with fallback token
+PIPEDRIVE_API_TOKEN=your_token PORT=3000 npm run start:sse
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/sse` | Open an SSE connection (creates a new MCP session) |
+| `POST` | `/messages?sessionId=...` | Send MCP messages to an active session |
+| `GET` | `/health` | Health check (returns active connection count) |
+
+### Authentication (Token Resolution)
+
+The SSE server resolves the Pipedrive API token in this priority order:
+
+1. **Authorization header**: `Authorization: Bearer <token>`
+2. **Custom header**: `X-Pipedrive-Token: <token>`
+3. **Query parameter**: `/sse?token=<token>`
+4. **Environment variable**: `PIPEDRIVE_API_TOKEN` (fallback for single-user mode)
+
+If no token is found, the server returns `401 Unauthorized`.
+
+### Connecting from MCP Clients
+
+#### Claude Desktop (SSE config)
+
+```json
+{
+  "mcpServers": {
+    "pipedrive": {
+      "url": "http://your-server:3000/sse",
+      "headers": {
+        "Authorization": "Bearer your_pipedrive_api_token"
+      }
+    }
+  }
+}
+```
+
+#### Claude Code CLI
+
+```json
+{
+  "mcpServers": {
+    "pipedrive": {
+      "type": "sse",
+      "url": "http://your-server:3000/sse",
+      "headers": {
+        "Authorization": "Bearer your_pipedrive_api_token"
+      }
+    }
+  }
+}
+```
+
+### SSE Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PORT` | No | `3000` | HTTP server port |
+| `HOST` | No | `0.0.0.0` | Bind address |
+| `PIPEDRIVE_API_TOKEN` | No | - | Fallback token (if clients do not provide their own) |
+| `PIPEDRIVE_READ_ONLY` | No | `false` | Enable read-only mode for all connections |
+| `PIPEDRIVE_TOOLSETS` | No | all | Comma-separated enabled tool categories |
+| `CORS_ORIGIN` | No | `*` | Allowed CORS origin |
+
+### Docker Deployment
+
+```dockerfile
+FROM node:22-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --production
+COPY dist/ ./dist/
+EXPOSE 3000
+CMD ["node", "dist/sse.js"]
+```
+
+```bash
+docker build -t mcp-pipedrive-sse .
+docker run -p 3000:3000 mcp-pipedrive-sse
+```
+
+### Architecture
+
+Each SSE connection creates an independent:
+- `SSEServerTransport` (MCP protocol over SSE)
+- `Server` instance (MCP server with tool handlers)
+- `PipedriveClient` (authenticated with that user's token)
+
+This means users are fully isolated -- one user's rate limits, cache, and errors do not affect another.
 
 ## Usage Examples
 
