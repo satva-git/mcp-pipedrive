@@ -308,6 +308,8 @@ curl http://localhost:3000/health
 
 ### Docker Deployment
 
+Use Docker when deploying to container-based platforms (e.g. [Coolify](https://coolify.io), Kubernetes, or any host that runs containers). Build the image and run it, or point your platform at the Dockerfile in the repo.
+
 ```dockerfile
 FROM node:22-alpine
 WORKDIR /app
