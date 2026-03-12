@@ -295,6 +295,39 @@ curl http://localhost:3000/health
 }
 ```
 
+#### Cursor
+
+**Option A — Settings UI**
+
+1. Open **Settings**: `Ctrl + ,` (Windows) or `Cmd + ,` (macOS).
+2. Go to **Tools & MCP** (or search for "MCP").
+3. Click **Add new MCP server** and set:
+   - **Name**: `pipedrive` (or any name).
+   - **Type**: `streamableHttp`.
+   - **URL**: `https://your-domain/sse` (your Coolify/public URL + `/sse`).
+   - **Headers**: add `Authorization` → `Bearer your_pipedrive_api_token`.
+4. Save and **restart Cursor** fully.
+
+**Option B — JSON config (project or global)**
+
+Create or edit `.cursor/mcp.json` in your project root (or use Cursor’s global MCP config path):
+
+```json
+{
+  "mcpServers": {
+    "pipedrive": {
+      "type": "streamableHttp",
+      "url": "https://your-domain/sse",
+      "headers": {
+        "Authorization": "Bearer your_pipedrive_api_token"
+      }
+    }
+  }
+}
+```
+
+Replace `your-domain` with your server URL (e.g. your Coolify domain) and `your_pipedrive_api_token` with your token from [Pipedrive → Settings → API](https://app.pipedrive.com/settings/api). Restart Cursor after changing the config.
+
 ### SSE Environment Variables
 
 | Variable | Required | Default | Description |
